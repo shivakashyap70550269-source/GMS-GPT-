@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Universal AI Chat</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+</head>
+
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+<div id="loading" class="flex items-center justify-center h-screen text-gray-600 text-lg">
+Loading App...
+</div>
+
+<div id="app" class="hidden flex flex-1 h-full">
+
+<!-- Sidebar -->
+<div id="sidebar" class="w-64 bg-white border-r p-4 flex flex-col">
+
+<button id="newChat" class="bg-blue-500 text-white rounded p-2 mb-4">
+New Chat
+</button>
+
+<div id="chatList" class="flex-1 overflow-y-auto text-sm"></div>
+
+<button id="settingsBtn" class="mt-4 text-gray-600">
+Settings
+</button>
+
+</div>
+
+<!-- Main -->
+<div class="flex flex-col flex-1">
+
+<div id="messages" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+
+<!-- Input -->
+<div class="border-t p-3 bg-white sticky bottom-0">
+
+<div class="flex gap-2">
+
+<input id="messageInput"
+class="flex-1 border rounded px-3 py-2"
+placeholder="Ask something...">
+
+<button id="sendBtn"
+class="bg-blue-500 text-white px-4 rounded">
+Send
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+
+<!-- Settings Modal -->
+<div id="settingsModal"
+class="fixed inset-0 bg-black/40 hidden items-center justify-center">
+
+<div class="bg-white p-6 rounded w-80">
+
+<h2 class="text-lg font-bold mb-3">Settings</h2>
+
+<label class="text-sm">OpenRouter API Key</label>
+
+<input id="apiKey"
+type="password"
+class="w-full border p-2 mb-3">
+
+<label class="text-sm">Model</label>
+
+<input id="modelName"
+value="deepseek/deepseek-r1:free"
+class="w-full border p-2 mb-4">
+
+<button id="saveSettings"
+class="bg-blue-500 text-white px-4 py-2 rounded">
+Save
+</button>
+
+</div>
+
+</div>
+
+
+
+<script>
+
+(function(){
+
+const loading=document.getElementById("loading")
+const app=document.getElementById("app")
+
+const messagesDiv=document.getElementById("messages")
+const input=document.getElementById("messageInput")
+const sendBtn=document.getElementById("sendBtn")
+
+const settingsBtn=document.getElementById("settingsBtn")
+const settingsModal=document.getElementById("settingsModal")
+
+const apiKeyInput=document.getElementById("apiKey")
+const modelInput=document.getElementById("modelName")
+
+const saveSettings=document.getElementById("saveSettings")
+
+let apiKey=localStorage.getItem("openrouter_api")||""
+let model=localStorage.getItem("openrouter_model")||"deepseek/deepseek-r1:free"
+
+apiKeyInput.value=apiKey
+modelInput.value=model
+
+let messages=[]
+
+function addMessage(role,text){
+
+let div=document.createElement("div")
+
+div.className=role==="user"?
+"text-right":
+"text-left"
+
+let bubble=document.createElement("div")
+
+bubble.className=role==="user"?
+"inline-block bg-blue-500 text-white p-2 rounded":
+"inline-block bg-gray-200 p-2 rounded"
+
+bubble.innerHTML=marked.parse(text)
+
+div.appendChild(bubble)
+
+messagesDiv.appendChild(div)
+
+messagesDiv.scrollTop=messagesDiv.scrollHeight
+
+}
+
+async function sendMessage(){
+
+const text=input.value.trim()
+
+if(!text)return
+
+input.value=""
+
+addMessage("user",text)
+
+messages.push({role:"user",content:text})
+
+addMessage("assistant","Typing...")
+
+try{
+
+const res=await fetch("https://openrouter.ai/api/v1/chat/completions",{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json",
+"Authorization":"Bearer "+apiKey
+},
+
+body:JSON.stringify({
+model:model,
+messages:messages
+})
+
+})
+
+const data=await res.json()
+
+let reply=data.choices[0].message.content
+
+messages.push({role:"assistant",content:reply})
+
+messagesDiv.lastChild.remove()
+
+addMessage("assistant",reply)
+
+}catch(e){
+
+messagesDiv.lastChild.remove()
+
+addMessage("assistant","Error contacting AI")
+
+}
+
+}
+
+sendBtn.onclick=sendMessage
+
+input.addEventListener("keypress",e=>{
+if(e.key==="Enter")sendMessage()
+})
+
+settingsBtn.onclick=()=>{
+settingsModal.classList.remove("hidden")
+settingsModal.classList.add("flex")
+}
+
+saveSettings.onclick=()=>{
+
+apiKey=apiKeyInput.value
+model=modelInput.value
+
+localStorage.setItem("openrouter_api",apiKey)
+localStorage.setItem("openrouter_model",model)
+
+settingsModal.classList.add("hidden")
+
+}
+
+loading.style.display="none"
+app.classList.remove("hidden")
+
+})()
+
+</script>
+
+</body>
+</html>
